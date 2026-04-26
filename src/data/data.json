@@ -1,0 +1,130 @@
+{
+  "rooms": [
+    {
+      "id": "deluxe-ac",
+      "name": "Deluxe AC Room",
+      "type": "Deluxe",
+      "price": 2800,
+      "rating": 4.8,
+      "reviews": 124,
+      "size": "32 sqm",
+      "beds": "1 King Bed",
+      "capacity": 2,
+      "image": "deluxe",
+      "shortFeatures": ["AC", "WiFi", "Smart TV"],
+      "features": ["King Bed", "Air Conditioning", "Free WiFi", "Smart TV", "Mini Bar", "Room Service"],
+      "description": "Spacious deluxe room with king-size bed, premium linens, and city views. Perfect for couples and business travelers seeking comfort and elegance."
+    },
+    {
+      "id": "premium-suite",
+      "name": "Premium Suite",
+      "type": "Suite",
+      "price": 5400,
+      "rating": 4.9,
+      "reviews": 89,
+      "size": "58 sqm",
+      "beds": "1 King + Living Area",
+      "capacity": 3,
+      "image": "suite",
+      "shortFeatures": ["AC", "WiFi", "City View"],
+      "features": ["Separate Living Area", "King Bed", "City View", "Premium Bath", "Workspace", "Lounge Access"],
+      "description": "Our signature suite featuring a separate living area, panoramic city views, and curated luxury amenities for an elevated stay."
+    },
+    {
+      "id": "standard-room",
+      "name": "Standard Room",
+      "type": "Standard",
+      "price": 1800,
+      "rating": 4.6,
+      "reviews": 210,
+      "size": "22 sqm",
+      "beds": "1 Queen Bed",
+      "capacity": 2,
+      "image": "standard",
+      "shortFeatures": ["AC", "WiFi", "TV"],
+      "features": ["Queen Bed", "Air Conditioning", "Free WiFi", "TV", "Daily Housekeeping"],
+      "description": "Cozy and comfortable standard room with all essential amenities, ideal for solo travelers and short stays."
+    },
+    {
+      "id": "family-suite",
+      "name": "Family Room",
+      "type": "Family",
+      "price": 4200,
+      "rating": 4.7,
+      "reviews": 156,
+      "size": "48 sqm",
+      "beds": "2 Double Beds",
+      "capacity": 4,
+      "image": "family",
+      "shortFeatures": ["AC", "WiFi", "Family"],
+      "features": ["Two Double Beds", "Air Conditioning", "Free WiFi", "Smart TV", "Sofa", "Family Bathroom"],
+      "description": "Spacious family room designed for comfort with two double beds and ample space for the whole family to relax."
+    }
+  ],
+  "amenities": [
+    { "icon": "Wifi", "label": "Free WiFi" },
+    { "icon": "Wind", "label": "Air Conditioning" },
+    { "icon": "Car", "label": "Free Parking" },
+    { "icon": "Coffee", "label": "Breakfast" },
+    { "icon": "Dumbbell", "label": "Fitness Center" },
+    { "icon": "Waves", "label": "Swimming Pool" },
+    { "icon": "Utensils", "label": "Restaurant" },
+    { "icon": "Sparkles", "label": "Spa & Wellness" }
+  ],
+  "testimonials": [
+    {
+      "name": "Ananya Sharma",
+      "location": "Mumbai",
+      "rating": 5,
+      "text": "Absolutely loved our stay. The rooms were spotless, the staff incredibly warm, and the views simply stunning. Will definitely be back."
+    },
+    {
+      "name": "Rahul Mehta",
+      "location": "Bangalore",
+      "rating": 5,
+      "text": "A perfect blend of comfort and elegance. Booking was seamless, and every detail was thoughtfully considered. Highly recommended."
+    },
+    {
+      "name": "Priya Nair",
+      "location": "Chennai",
+      "rating": 5,
+      "text": "From check-in to check-out, the experience was flawless. The amenities are top-notch and the food was delicious."
+    }
+  ],
+  "bookings": [
+    {
+      "id": "BK-2401",
+      "room": "Deluxe AC Room",
+      "checkIn": "2026-05-12",
+      "checkOut": "2026-05-15",
+      "guests": 2,
+      "total": 8400,
+      "status": "Upcoming"
+    },
+    {
+      "id": "BK-2389",
+      "room": "Premium Suite",
+      "checkIn": "2026-03-08",
+      "checkOut": "2026-03-10",
+      "guests": 2,
+      "total": 10800,
+      "status": "Completed"
+    },
+    {
+      "id": "BK-2356",
+      "room": "Family Room",
+      "checkIn": "2025-12-22",
+      "checkOut": "2025-12-26",
+      "guests": 4,
+      "total": 16800,
+      "status": "Completed"
+    }
+  ],
+  "user": {
+    "name": "Aarav Patel",
+    "email": "aarav.patel@example.com",
+    "phone": "+91 98765 43210",
+    "memberSince": "2024",
+    "tier": "Gold"
+  }
+}
