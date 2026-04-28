@@ -1,13 +1,51 @@
+import { useState } from "react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, ArrowRight, MapPin } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CalendarDays, ArrowRight, MapPin, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import data from "@/data/data.json";
 import { format } from "date-fns";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usersApi, bookingsApi, type Booking } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { STATUS_LABELS, STATUS_COLORS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+
+const ACTIVE = new Set(["pending", "confirmed", "checked_in"]);
 
 const MyBookings = () => {
-  const upcoming = data.bookings.filter((b) => b.status === "Upcoming");
-  const past = data.bookings.filter((b) => b.status !== "Upcoming");
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [cancelId, setCancelId] = useState<string | null>(null);
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["myBookings"],
+    queryFn: () => usersApi.getMyBookings(),
+    enabled: !!user,
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (bookingId: string) => bookingsApi.cancel(bookingId),
+    onMutate: (id) => setCancelId(id),
+    onSettled: () => {
+      setCancelId(null);
+      queryClient.invalidateQueries({ queryKey: ["myBookings"] });
+    },
+  });
+
+  const bookings: Booking[] = data?.data ?? [];
+  const upcoming = bookings.filter((b) => ACTIVE.has(b.status));
+  const past = bookings.filter((b) => !ACTIVE.has(b.status));
+
+  if (!user) {
+    return (
+      <PageLayout>
+        <div className="container-page py-20 text-center text-muted-foreground">
+          Please <Link to="/" className="text-primary underline">sign in</Link> to view your bookings.
+        </div>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>
@@ -21,76 +59,122 @@ const MyBookings = () => {
       </section>
 
       <section className="container-page py-12 space-y-12">
-        {/* Upcoming */}
-        <div>
-          <h2 className="font-display text-2xl font-semibold">Upcoming</h2>
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">
-            {upcoming.length === 0 && (
-              <div className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
-                No upcoming stays.
-              </div>
-            )}
-            {upcoming.map((b) => (
-              <div key={b.id} className="hover-lift relative overflow-hidden rounded-2xl bg-gradient-sky p-6 text-primary-foreground shadow-elevated">
-                <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/15 blur-2xl" />
-                <div className="relative">
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur">{b.status}</span>
-                    <span className="text-xs opacity-80">#{b.id}</span>
-                  </div>
-                  <h3 className="mt-4 font-display text-2xl font-semibold">{b.room}</h3>
-                  <div className="mt-3 flex flex-wrap items-center gap-4 text-sm opacity-90">
-                    <span className="flex items-center gap-1.5"><CalendarDays className="h-4 w-4" />
-                      {format(new Date(b.checkIn), "dd MMM")} – {format(new Date(b.checkOut), "dd MMM yyyy")}
-                    </span>
-                    <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" /> Bengaluru</span>
-                  </div>
-                  <div className="mt-5 flex items-center justify-between">
-                    <div className="font-display text-xl font-semibold">₹{b.total.toLocaleString("en-IN")}</div>
-                    <Button asChild size="sm" className="rounded-full bg-white text-foreground hover:bg-white/95">
-                      <Link to="/my-bookings">View details <ArrowRight className="ml-1.5 h-3.5 w-3.5" /></Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
+        {isLoading && (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-40 w-full rounded-2xl" />
             ))}
           </div>
-        </div>
+        )}
 
-        {/* History */}
-        <div>
-          <h2 className="font-display text-2xl font-semibold">Booking History</h2>
-          <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-            <div className="hidden grid-cols-[2fr_2fr_1fr_1fr_1fr] gap-4 border-b border-border bg-muted/40 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:grid">
-              <div>Room</div>
-              <div>Dates</div>
-              <div>Guests</div>
-              <div>Total</div>
-              <div>Status</div>
-            </div>
-            {past.map((b) => (
-              <div key={b.id} className="grid grid-cols-1 gap-2 border-b border-border px-6 py-4 last:border-0 md:grid-cols-[2fr_2fr_1fr_1fr_1fr] md:items-center md:gap-4">
-                <div>
-                  <div className="font-medium">{b.room}</div>
-                  <div className="text-xs text-muted-foreground">#{b.id}</div>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {format(new Date(b.checkIn), "dd MMM")} – {format(new Date(b.checkOut), "dd MMM yyyy")}
-                </div>
-                <div className="text-sm">{b.guests}</div>
-                <div className="font-semibold">₹{b.total.toLocaleString("en-IN")}</div>
-                <div>
-                  <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-primary-deep">
-                    {b.status}
-                  </span>
-                </div>
-              </div>
-            ))}
+        {isError && (
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center text-muted-foreground">
+            Failed to load bookings.
           </div>
-        </div>
+        )}
+
+        {!isLoading && !isError && (
+          <>
+            <div>
+              <h2 className="font-display text-2xl font-semibold">Upcoming</h2>
+              <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                {upcoming.length === 0 && (
+                  <div className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
+                    No upcoming stays.{" "}
+                    <Link to="/rooms" className="text-primary underline">Book a room</Link>
+                  </div>
+                )}
+                {upcoming.map((b) => (
+                  <BookingCard
+                    key={b._id}
+                    booking={b}
+                    cancelling={cancelId === b._id}
+                    onCancel={() => {
+                      if (window.confirm("Cancel this booking?")) cancelMutation.mutate(b._id);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h2 className="font-display text-2xl font-semibold">Past Stays</h2>
+              <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                {past.length === 0 && (
+                  <div className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
+                    No past stays yet.
+                  </div>
+                )}
+                {past.map((b) => (
+                  <BookingCard key={b._id} booking={b} />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </section>
     </PageLayout>
   );
 };
 
+interface CardProps {
+  booking: Booking;
+  cancelling?: boolean;
+  onCancel?: () => void;
+}
+
+const BookingCard = ({ booking: b, cancelling, onCancel }: CardProps) => {
+  const roomName = typeof b.room === "object" ? (b.room as any).type ?? "Room" : b.room ?? "Room";
+  const roomNumber = typeof b.room === "object" ? (b.room as any).roomNumber : null;
+  const canCancel = ACTIVE.has(b.status) && onCancel;
+
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-card md:flex-row">
+      <div className="flex flex-1 flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-display text-lg font-semibold">{roomName}{roomNumber ? ` (Room ${roomNumber})` : ""}</h3>
+          <span className={cn("shrink-0 rounded-full px-3 py-1 text-xs font-semibold", STATUS_COLORS[b.status] ?? "bg-muted text-muted-foreground")}>
+            {STATUS_LABELS[b.status] ?? b.status}
+          </span>
+        </div>
+
+        <p className="text-xs font-mono text-muted-foreground">ID: {b.bookingId}</p>
+
+        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <CalendarDays className="h-3.5 w-3.5" />
+            {format(new Date(b.checkInDate), "dd MMM yyyy")} → {format(new Date(b.checkOutDate), "dd MMM yyyy")}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5" /> {b.nights ?? 1} nights · {b.guests} guests
+          </span>
+        </div>
+
+        <div className="mt-1 text-sm font-semibold">
+          Total: ₹{b.totalAmount?.toLocaleString("en-IN")}
+        </div>
+
+        <div className="mt-3 flex items-center gap-3">
+          {canCancel && (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="rounded-full"
+              onClick={onCancel}
+              disabled={cancelling}
+            >
+              {cancelling ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+              {cancelling ? "Cancelling..." : "Cancel Booking"}
+            </Button>
+          )}
+          <Button asChild size="sm" variant="ghost" className="rounded-full">
+            <Link to="/rooms">Browse Rooms <ArrowRight className="ml-1.5 h-3.5 w-3.5" /></Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default MyBookings;
+

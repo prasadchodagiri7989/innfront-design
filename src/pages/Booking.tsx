@@ -1,35 +1,130 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Calendar as CalIcon, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
-import { format } from "date-fns";
+import { Check, Calendar as CalIcon, ArrowRight, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { format, differenceInCalendarDays } from "date-fns";
 import { cn } from "@/lib/utils";
-import data from "@/data/data.json";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { roomsApi, bookingsApi, ApiError } from "@/lib/api";
 import { roomImages } from "@/lib/rooms";
+import { useAuth } from "@/contexts/AuthContext";
+import { AuthModal } from "@/components/auth/AuthModal";
+
+const typeToImage = (type: string): string => {
+  if (type === "Suite") return "suite";
+  if (type === "Deluxe AC") return "deluxe";
+  return "standard";
+};
 
 const steps = ["Dates & Guests", "Your Details", "Summary", "Confirmation"];
 
 const Booking = () => {
+  const [searchParams] = useSearchParams();
+  const roomId = searchParams.get("roomId");
+  const checkInParam = searchParams.get("checkIn");
+  const checkOutParam = searchParams.get("checkOut");
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const [checkIn, setCheckIn] = useState<Date | undefined>(new Date());
-  const [checkOut, setCheckOut] = useState<Date | undefined>();
+  const [checkIn, setCheckIn] = useState<Date | undefined>(
+    checkInParam ? new Date(checkInParam + "T12:00:00") : new Date()
+  );
+  const [checkOut, setCheckOut] = useState<Date | undefined>(
+    checkOutParam ? new Date(checkOutParam + "T12:00:00") : undefined
+  );
   const [guests, setGuests] = useState("2");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const room = data.rooms[0];
+  const [specialRequests, setSpecialRequests] = useState("");
+  const [createdBooking, setCreatedBooking] = useState<any>(null);
+  const [apiError, setApiError] = useState("");
 
-  const next = () => setStep((s) => Math.min(s + 1, steps.length - 1));
+  // Pre-fill from logged-in user
+  useEffect(() => {
+    if (user) {
+      setName(user.name ?? "");
+      setEmail(user.email ?? "");
+      setPhone(user.phone ?? "");
+    }
+  }, [user]);
+
+  const { data: roomData, isLoading: roomLoading } = useQuery({
+    queryKey: ["room", roomId],
+    queryFn: () => roomsApi.getById(roomId!),
+    enabled: !!roomId,
+  });
+
+  const room = roomData?.data;
+
+  const nights = checkIn && checkOut
+    ? Math.max(1, differenceInCalendarDays(checkOut, checkIn))
+    : 1;
+  const subtotal = room ? room.price * nights : 0;
+  const gst = Math.round(subtotal * 0.12);
+  const total = subtotal + gst;
+
+  const bookingMutation = useMutation({
+    mutationFn: () =>
+      bookingsApi.create({
+        roomId: roomId!,
+        checkInDate: checkIn!.toISOString(),
+        checkOutDate: checkOut!.toISOString(),
+        guests: parseInt(guests, 10),
+        specialRequests,
+      }),
+    onSuccess: (res: any) => {
+      setCreatedBooking(res.data);
+      setStep(3);
+      setApiError("");
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) setApiError(err.message);
+      else setApiError("Booking failed. Please try again.");
+    },
+  });
+
+  const next = () => {
+    if (step === 2) {
+      if (!user) {
+        setAuthModalOpen(true);
+        return;
+      }
+      bookingMutation.mutate();
+      return;
+    }
+    setStep((s) => Math.min(s + 1, steps.length - 1));
+  };
   const back = () => setStep((s) => Math.max(s - 1, 0));
+
+  if (!roomId) {
+    return (
+      <PageLayout>
+        <div className="container-page py-20 text-center text-muted-foreground">
+          No room selected.{" "}
+          <Link to="/rooms" className="text-primary underline">Browse rooms</Link>
+        </div>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        defaultMode="login"
+      />
+
       <section className="border-b border-border bg-muted/40 py-12">
         <div className="container-page">
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Reservation</span>
@@ -79,7 +174,9 @@ const Booking = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {[1,2,3,4,5,6].map(n => <SelectItem key={n} value={String(n)}>{n} guests</SelectItem>)}
+                      {[1,2,3,4,5,6].map(n => (
+                        <SelectItem key={n} value={String(n)}>{n} guest{n > 1 ? "s" : ""}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -89,6 +186,11 @@ const Booking = () => {
             {step === 1 && (
               <div className="space-y-5 animate-fade-up">
                 <h2 className="font-display text-2xl font-semibold">Your details</h2>
+                {!user && (
+                  <div className="rounded-xl border border-primary/30 bg-primary-soft/50 p-4 text-sm text-primary-deep">
+                    You'll be asked to sign in before confirming your booking.
+                  </div>
+                )}
                 <div>
                   <Label>Full name</Label>
                   <Input className="mt-1.5 h-12 rounded-xl" value={name} onChange={(e) => setName(e.target.value)} placeholder="Aarav Patel" />
@@ -103,6 +205,10 @@ const Booking = () => {
                     <Input type="email" className="mt-1.5 h-12 rounded-xl" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
                   </div>
                 </div>
+                <div>
+                  <Label>Special requests (optional)</Label>
+                  <Input className="mt-1.5 h-12 rounded-xl" value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} placeholder="e.g. early check-in, ground floor..." />
+                </div>
               </div>
             )}
 
@@ -113,28 +219,53 @@ const Booking = () => {
                   <SummaryRow label="Guest" value={name || "—"} />
                   <SummaryRow label="Email" value={email || "—"} />
                   <SummaryRow label="Phone" value={phone || "—"} />
+                  <SummaryRow label="Room" value={room ? `${room.type} (Room ${room.roomNumber})` : "—"} />
                   <SummaryRow label="Check-in" value={checkIn ? format(checkIn, "PPP") : "—"} />
                   <SummaryRow label="Check-out" value={checkOut ? format(checkOut, "PPP") : "—"} />
-                  <SummaryRow label="Guests" value={`${guests} guests`} />
+                  <SummaryRow label="Nights" value={String(nights)} />
+                  <SummaryRow label="Guests" value={`${guests} guest${parseInt(guests) > 1 ? "s" : ""}`} />
+                  <SummaryRow label="Subtotal" value={`₹${subtotal.toLocaleString("en-IN")}`} />
+                  <SummaryRow label="GST (12%)" value={`₹${gst.toLocaleString("en-IN")}`} />
+                  <div className="mt-2 flex items-center justify-between border-t border-border pt-3 font-semibold">
+                    <span>Total</span>
+                    <span>₹{total.toLocaleString("en-IN")}</span>
+                  </div>
                 </div>
+                {apiError && (
+                  <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{apiError}</p>
+                )}
               </div>
             )}
 
-            {step === 3 && (
+            {step === 3 && createdBooking && (
               <div className="space-y-5 text-center animate-scale-in">
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-soft">
                   <CheckCircle2 className="h-10 w-10 text-primary-deep" strokeWidth={1.5} />
                 </div>
-                <h2 className="font-display text-3xl font-semibold">Booking Confirmed</h2>
+                <h2 className="font-display text-3xl font-semibold">Booking Confirmed!</h2>
                 <p className="mx-auto max-w-md text-muted-foreground">
-                  Your stay at Hotel Abhijeeth INN is locked in. We've sent the confirmation to {email || "your email"}.
+                  Your stay at Hotel Abhitej Inn is confirmed. A confirmation has been sent to <strong>{email}</strong>.
                 </p>
                 <div className="mx-auto max-w-md rounded-xl bg-muted/60 p-5 text-left">
                   <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Booking ID</div>
-                  <div className="mt-1 font-display text-xl font-semibold">BK-{Math.floor(1000 + Math.random()*9000)}</div>
+                  <div className="mt-1 font-display text-xl font-semibold">{createdBooking.bookingId}</div>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                    <div><div className="text-muted-foreground">Room</div><div className="font-medium">{room.name}</div></div>
-                    <div><div className="text-muted-foreground">Guests</div><div className="font-medium">{guests}</div></div>
+                    <div>
+                      <div className="text-muted-foreground">Room</div>
+                      <div className="font-medium">{createdBooking.room?.type ?? room?.type}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Total</div>
+                      <div className="font-medium">₹{createdBooking.totalAmount?.toLocaleString("en-IN")}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Check-in</div>
+                      <div className="font-medium">{format(new Date(createdBooking.checkInDate), "dd MMM yyyy")}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Check-out</div>
+                      <div className="font-medium">{format(new Date(createdBooking.checkOutDate), "dd MMM yyyy")}</div>
+                    </div>
                   </div>
                 </div>
                 <Button asChild className="rounded-full bg-gradient-sky text-primary-foreground">
@@ -148,29 +279,71 @@ const Booking = () => {
                 <Button variant="ghost" disabled={step === 0} onClick={back} className="rounded-full">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
-                <Button onClick={next} className="rounded-full bg-gradient-sky text-primary-foreground shadow-glow">
-                  {step === 2 ? "Confirm Booking" : "Continue"} <ArrowRight className="ml-2 h-4 w-4" />
+                <Button
+                  onClick={next}
+                  disabled={
+                    bookingMutation.isPending ||
+                    (step === 0 && (!checkIn || !checkOut))
+                  }
+                  className="rounded-full bg-gradient-sky text-primary-foreground shadow-glow"
+                >
+                  {bookingMutation.isPending ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirming...</>
+                  ) : step === 2 ? (
+                    !user ? "Sign In & Confirm" : "Confirm Booking"
+                  ) : (
+                    "Continue"
+                  )}
+                  {!bookingMutation.isPending && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
               </div>
             )}
           </div>
 
-          {/* Summary */}
+          {/* Summary Sidebar */}
           <aside className="lg:sticky lg:top-24 lg:self-start">
             <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-              <img src={roomImages[room.image]} alt={room.name} className="aspect-[4/3] w-full object-cover" />
-              <div className="p-5">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Your selection</div>
-                <h3 className="mt-1 font-display text-lg font-semibold">{room.name}</h3>
-                <div className="mt-4 space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Room rate</span><span>₹{room.price.toLocaleString("en-IN")}/night</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Nights</span><span>2</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Service</span><span>₹350</span></div>
-                  <div className="mt-3 flex justify-between border-t border-border pt-3 font-display text-lg font-semibold">
-                    <span>Total</span><span>₹{(room.price * 2 + 350).toLocaleString("en-IN")}</span>
+              {roomLoading ? (
+                <div>
+                  <Skeleton className="aspect-[4/3] w-full" />
+                  <div className="p-5 space-y-2">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-5 w-2/3" />
+                    <Skeleton className="h-24 w-full mt-3" />
                   </div>
                 </div>
-              </div>
+              ) : room ? (
+                <>
+                  <img
+                    src={room.images?.[0] || roomImages[typeToImage(room.type)]}
+                    alt={room.type}
+                    className="aspect-[4/3] w-full object-cover"
+                  />
+                  <div className="p-5">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Your selection</div>
+                    <h3 className="mt-1 font-display text-lg font-semibold">{room.type}</h3>
+                    <p className="text-xs text-muted-foreground">Room {room.roomNumber} · Floor {room.floor}</p>
+                    <div className="mt-4 space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Rate</span>
+                        <span>₹{room.price.toLocaleString("en-IN")}/night</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Nights</span>
+                        <span>{nights}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">GST (12%)</span>
+                        <span>₹{gst.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="mt-3 flex justify-between border-t border-border pt-3 font-display text-lg font-semibold">
+                        <span>Total</span>
+                        <span>₹{total.toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : null}
             </div>
           </aside>
         </div>
@@ -204,3 +377,4 @@ const SummaryRow = ({ label, value }: { label: string; value: string }) => (
 );
 
 export default Booking;
+

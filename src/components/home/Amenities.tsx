@@ -1,5 +1,19 @@
 import * as Icons from "lucide-react";
-import data from "@/data/data.json";
+
+const AMENITIES = [
+  { label: "Free Wi-Fi", icon: "Wifi" },
+  { label: "Air Conditioning", icon: "Wind" },
+  { label: "Swimming Pool", icon: "Waves" },
+  { label: "Restaurant", icon: "Utensils" },
+  { label: "Room Service", icon: "BellRing" },
+  { label: "Parking", icon: "Car" },
+  { label: "Gym", icon: "Dumbbell" },
+  { label: "Spa", icon: "Sparkles" },
+  { label: "Laundry", icon: "WashingMachine" },
+  { label: "24/7 Reception", icon: "Clock" },
+  { label: "TV", icon: "Tv2" },
+  { label: "Hot Water", icon: "Droplets" },
+];
 
 export const Amenities = () => (
   <section className="py-20 md:py-28">
@@ -17,7 +31,7 @@ export const Amenities = () => (
       </div>
 
       <div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-        {data.amenities.map((a) => {
+        {AMENITIES.map((a) => {
           const Icon = (Icons as any)[a.icon] ?? Icons.Sparkles;
           return (
             <div

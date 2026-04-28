@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { Star, ChevronLeft, ChevronRight, Quote } from "lucide-react";
-import data from "@/data/data.json";
+
+const TESTIMONIALS = [
+  { name: "Aarav Patel", location: "Mumbai", rating: 5, text: "A wonderful stay at Hotel Abhitej Inn. The rooms are immaculate, the staff exceptionally attentive, and the ambiance truly serene." },
+  { name: "Ananya Sharma", location: "Bangalore", rating: 5, text: "From the moment we arrived, every detail was perfect. The Suite exceeded all our expectations — absolutely worth it." },
+  { name: "Rohan Mehta", location: "Delhi", rating: 4, text: "Great location and spotlessly clean rooms. The restaurant food was delicious and the check-in was smooth." },
+  { name: "Priya Nair", location: "Hyderabad", rating: 5, text: "The warm hospitality and attention to detail makes this hotel stand out. Will definitely return!" },
+];
 
 export const Testimonials = () => {
   const [i, setI] = useState(0);
-  const items = data.testimonials;
+  const items = TESTIMONIALS;
 
   return (
     <section className="bg-muted/50 py-20 md:py-28">
