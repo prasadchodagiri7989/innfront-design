@@ -156,3 +156,16 @@
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* Booked dates in availability calendar */
+.rdp-day_booked button,
+.rdp-day_booked {
+  background-color: hsl(var(--destructive) / 0.15) !important;
+  color: hsl(var(--destructive)) !important;
+  border-radius: 0 !important;
+  font-weight: 600;
+  position: relative;
+}
+.rdp-day_booked button:hover {
+  background-color: hsl(var(--destructive) / 0.25) !important;
+}

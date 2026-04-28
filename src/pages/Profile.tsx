@@ -1,13 +1,54 @@
-import { useState } from "react";
+﻿import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Award, BedDouble, CalendarCheck, Mail } from "lucide-react";
-import data from "@/data/data.json";
+import { Award, BedDouble, CalendarCheck, Mail, Loader2 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { usersApi, ApiError } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Profile = () => {
-  const [user, setUser] = useState(data.user);
+  const { user, refreshUser } = useAuth();
+  const [name, setName] = useState(user?.name ?? "");
+  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [saveError, setSaveError] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name ?? "");
+      setPhone(user.phone ?? "");
+    }
+  }, [user]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => usersApi.updateProfile({ name, phone }),
+    onSuccess: async () => {
+      await refreshUser();
+      setSaved(true);
+      setSaveError("");
+      setTimeout(() => setSaved(false), 2500);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) setSaveError(err.message);
+      else setSaveError("Failed to save. Please try again.");
+    },
+  });
+
+  if (!user) {
+    return (
+      <PageLayout>
+        <div className="container-page py-20 text-center text-muted-foreground">
+          Please <Link to="/" className="text-primary underline">sign in</Link> to view your profile.
+        </div>
+      </PageLayout>
+    );
+  }
+
+  const initials = user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+  const memberYear = user.memberSince ? new Date(user.memberSince).getFullYear() : new Date().getFullYear();
 
   return (
     <PageLayout>
@@ -25,18 +66,18 @@ const Profile = () => {
         <aside className="space-y-5">
           <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-card">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-sky font-display text-2xl font-semibold text-primary-foreground shadow-glow">
-              {user.name.split(" ").map(n => n[0]).join("")}
+              {initials}
             </div>
             <h2 className="mt-4 font-display text-xl font-semibold">{user.name}</h2>
             <p className="text-sm text-muted-foreground">{user.email}</p>
             <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary-deep">
-              <Award className="h-3.5 w-3.5" /> {user.tier} Member · Since {user.memberSince}
+              <Award className="h-3.5 w-3.5" /> {user.loyaltyTier} Member Â· Since {memberYear}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Stat icon={<CalendarCheck className="h-4 w-4" />} label="Stays" value={String(data.bookings.length)} />
-            <Stat icon={<BedDouble className="h-4 w-4" />} label="Nights" value="9" />
+            <Stat icon={<CalendarCheck className="h-4 w-4" />} label="Total Stays" value={String(user.totalStays ?? 0)} />
+            <Stat icon={<BedDouble className="h-4 w-4" />} label="Tier" value={user.loyaltyTier ?? "Bronze"} />
           </div>
         </aside>
 
@@ -48,25 +89,41 @@ const Profile = () => {
           <div className="mt-6 grid gap-5 md:grid-cols-2">
             <div>
               <Label>Full name</Label>
-              <Input className="mt-1.5 h-12 rounded-xl" value={user.name} onChange={(e) => setUser({ ...user, name: e.target.value })} />
+              <Input className="mt-1.5 h-12 rounded-xl" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div>
               <Label>Email address</Label>
-              <Input className="mt-1.5 h-12 rounded-xl" value={user.email} onChange={(e) => setUser({ ...user, email: e.target.value })} />
+              <Input className="mt-1.5 h-12 rounded-xl bg-muted/60" value={user.email} readOnly />
             </div>
             <div>
               <Label>Phone</Label>
-              <Input className="mt-1.5 h-12 rounded-xl" value={user.phone} onChange={(e) => setUser({ ...user, phone: e.target.value })} />
+              <Input className="mt-1.5 h-12 rounded-xl" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" />
             </div>
             <div>
               <Label>Membership tier</Label>
-              <Input className="mt-1.5 h-12 rounded-xl bg-muted/60" value={user.tier} readOnly />
+              <Input className="mt-1.5 h-12 rounded-xl bg-muted/60" value={user.loyaltyTier ?? "Bronze"} readOnly />
             </div>
           </div>
 
+          {saveError && (
+            <p className="mt-4 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{saveError}</p>
+          )}
+          {saved && (
+            <p className="mt-4 rounded-lg bg-green-50 px-4 py-2.5 text-sm text-green-700">Profile updated successfully.</p>
+          )}
+
           <div className="mt-8 flex flex-wrap gap-3 border-t border-border pt-6">
-            <Button className="rounded-full bg-gradient-sky text-primary-foreground shadow-glow">Save changes</Button>
-            <Button variant="ghost" className="rounded-full">Cancel</Button>
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="rounded-full bg-gradient-sky text-primary-foreground shadow-glow"
+            >
+              {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {saveMutation.isPending ? "Saving..." : "Save changes"}
+            </Button>
+            <Button variant="ghost" className="rounded-full" onClick={() => { setName(user.name); setPhone(user.phone ?? ""); }}>
+              Cancel
+            </Button>
           </div>
 
           <div className="mt-8 rounded-xl bg-muted/50 p-4">
